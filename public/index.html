@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobMatch AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --bg:#FAFAF9;
+    --surface:#FFFFFF;
+    --surface-alt:#F3F3F1;
+    --text:#1C1D1F;
+    --text-soft:#68696D;
+    --border:#E6E5E2;
+    --accent:#2952E3;
+    --accent-hover:#2141C2;
+    --accent-soft:#EEF1FE;
+    --success:#1D8A5E;
+    --success-soft:#E8F5EE;
+    --warning:#C77C1D;
+    --danger:#C4432E;
+    --danger-soft:#FCEEEC;
+    --shadow:0 1px 2px rgba(28,29,31,0.04), 0 8px 24px rgba(28,29,31,0.05);
+    --radius:16px;
+  }
+  html[data-theme="dark"]{
+    --bg:#101113;
+    --surface:#17181B;
+    --surface-alt:#1D1F22;
+    --text:#EDEDEC;
+    --text-soft:#9A9B9E;
+    --border:#2A2C30;
+    --accent:#5C7BFF;
+    --accent-hover:#7291FF;
+    --accent-soft:rgba(92,123,255,0.14);
+    --success:#3FBE87;
+    --success-soft:rgba(63,190,135,0.12);
+    --warning:#E3A13B;
+    --danger:#E15F49;
+    --danger-soft:rgba(225,95,73,0.12);
+    --shadow:0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.4);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    transition: background-color .2s ease, color .2s ease;
+    -webkit-font-smoothing:antialiased;
+  }
+  .shell{ max-width:1180px; margin:0 auto; padding:22px 20px 60px; }
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:28px;
+  }
+  .logo{ display:flex; align-items:center; gap:10px; }
+  .logo-mark{
+    width:34px; height:34px; border-radius:9px;
+    background:linear-gradient(135deg, var(--accent), #7BD0C0);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:800; font-size:15px;
+  }
+  .logo-text{ font-weight:700; font-size:17px; letter-spacing:-0.01em; }
+  .logo-sub{ font-size:11.5px; color:var(--text-soft); margin-left:2px; }
+
+  .theme-toggle{
+    width:50px; height:28px; border-radius:999px;
+    border:1px solid var(--border); background:var(--surface-alt);
+    position:relative; cursor:pointer; padding:0;
+  }
+  .theme-toggle .knob{
+    position:absolute; top:2px; left:2px; width:22px; height:22px;
+    border-radius:50%; background:var(--text); color:var(--bg);
+    display:flex; align-items:center; justify-content:center; font-size:12px;
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  html[data-theme="dark"] .theme-toggle .knob{ transform:translateX(22px); }
+
+  .layout{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:20px;
+    align-items:start;
+  }
+  @media (max-width: 900px){
+    .layout{ grid-template-columns: 1fr; }
+  }
+
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:24px;
+    box-shadow:var(--shadow);
+  }
+  .panel-title{
+    font-size:13px; font-weight:700; letter-spacing:0.03em;
+    text-transform:uppercase; color:var(--text-soft);
+    margin-bottom:18px;
+  }
+
+  /* Mode switch (segmented control) */
+  .mode-switch{
+    display:flex; background:var(--surface-alt); border:1px solid var(--border);
+    border-radius:11px; padding:3px; margin-bottom:8px;
+  }
+  .mode-btn{
+    flex:1; background:none; border:none; padding:9px 8px; border-radius:8px;
+    font-size:13px; font-weight:600; color:var(--text-soft); cursor:pointer;
+    font-family:'Inter',sans-serif; transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+  }
+  .mode-btn.active{ background:var(--surface); color:var(--accent); box-shadow:var(--shadow); }
+  .mode-desc{ font-size:12px; color:var(--text-soft); margin-bottom:18px; }
+
+  .field{ margin-bottom:18px; }
+  .field-head{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:8px;
+  }
+  .field label{
+    font-size:13.5px; font-weight:600;
+  }
+  .ghost-btn{
+    background:var(--surface-alt); border:1px solid var(--border);
+    color:var(--text); font-size:12.5px; font-weight:600;
+    padding:6px 12px; border-radius:8px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .ghost-btn:hover{ border-color:var(--accent); color:var(--accent); }
+
+  textarea, input[type=text], input[type=url]{
+    width:100%; padding:12px 14px; border-radius:10px;
+    border:1px solid var(--border); background:var(--surface);
+    color:var(--text); font-family:'Inter',sans-serif; font-size:14px;
+    resize:vertical;
+  }
+  textarea:focus, input:focus{
+    outline:2px solid var(--accent); outline-offset:1px;
+  }
+  textarea{ min-height:150px; line-height:1.5; }
+  textarea.small{ min-height:90px; }
+  .helper{ font-size:12px; color:var(--text-soft); margin-top:6px; }
+  .helper.warn{ color:var(--warning); }
+
+  .url-row{ display:flex; gap:8px; margin-bottom:8px; }
+  .url-row input{ flex:1; }
+  .btn-fetch{
+    background:var(--surface-alt); border:1px solid var(--border);
+    color:var(--text); font-weight:600; font-size:13px;
+    padding:0 16px; border-radius:10px; cursor:pointer; white-space:nowrap;
+  }
+  .btn-fetch:hover{ border-color:var(--accent); color:var(--accent); }
+
+  .validation{
+    display:none; background:var(--danger-soft); color:var(--danger);
+    border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:14px;
+    font-weight:500;
+  }
+  .validation.show{ display:block; }
+
+  .generate-btn{
+    width:100%; border:none; border-radius:12px; padding:15px;
+    font-size:15px; font-weight:700; color:#fff; cursor:pointer;
+    background:linear-gradient(120deg, var(--accent), #7BD0C0, var(--accent));
+    background-size:200% 200%;
+    animation: gradientShift 4s ease infinite;
+    position:relative; overflow:hidden;
+    transition: transform .1s ease, opacity .2s ease;
+  }
+  .generate-btn:hover{ transform:translateY(-1px); }
+  .generate-btn:active{ transform:translateY(0); }
+  .generate-btn:disabled{ opacity:.75; cursor:not-allowed; }
+  @keyframes gradientShift{
+    0%{background-position:0% 50%;}
+    50%{background-position:100% 50%;}
+    100%{background-position:0% 50%;}
+  }
+  .spinner{
+    width:16px; height:16px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.4); border-top-color:#fff;
+    display:inline-block; vertical-align:middle; margin-right:8px;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* Result panel states */
+  .result-empty{
+    text-align:center; padding:60px 20px; color:var(--text-soft);
+  }
+  .result-empty .big{
+    font-size:16px; font-weight:600; color:var(--text); margin-bottom:6px;
+  }
+  .result-loading{ display:none; text-align:center; padding:60px 20px; }
+  .result-loading.show{ display:block; }
+  .loading-spinner{
+    width:32px; height:32px; border-radius:50%; margin:0 auto 18px;
+    border:3px solid var(--border); border-top-color:var(--accent);
+    animation: spin .8s linear infinite;
+  }
+  .loading-status{ font-size:14px; font-weight:600; color:var(--text); }
+
+  .result-content{ display:none; }
+  .result-content.show{ display:block; }
+
+  .match-header{
+    background:var(--accent-soft); border-radius:14px; padding:16px 18px; margin-bottom:18px;
+  }
+  .match-top{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
+  .match-score{ font-size:26px; font-weight:800; color:var(--accent); }
+  .match-label{ font-size:12.5px; color:var(--text-soft); font-weight:600; text-transform:uppercase; letter-spacing:0.03em; }
+  .match-bar{ height:8px; border-radius:999px; background:var(--border); overflow:hidden; margin-bottom:14px; }
+  .match-bar-fill{ height:100%; border-radius:999px; background:linear-gradient(90deg, var(--accent), var(--success)); width:0%; transition:width .6s ease; }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; padding:4px 9px;
+    border-radius:999px; font-weight:500;
+  }
+  .chip.matched{ background:var(--success-soft); color:var(--success); }
+  .chip.missing{ background:transparent; color:var(--text-soft); border:1px dashed var(--border); }
+
+  .why-box{
+    background:var(--surface-alt); border-radius:12px; padding:14px 16px; margin-bottom:18px;
+    font-size:13.5px; line-height:1.55;
+  }
+  .why-box strong{ display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-soft); margin-bottom:6px; }
+
+  .tabs{ display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+  .tab-btn{
+    background:none; border:none; padding:10px 14px; font-size:13.5px; font-weight:600;
+    color:var(--text-soft); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .tab-btn.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-btn.hidden-tab{ display:none; }
+
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+  .content-box{
+    background:var(--surface-alt); border-radius:12px; padding:18px; position:relative;
+    white-space:pre-wrap; font-size:14px; line-height:1.65; max-height:420px; overflow-y:auto;
+  }
+  .copy-btn{
+    position:absolute; top:10px; right:10px; background:var(--surface); border:1px solid var(--border);
+    color:var(--text-soft); font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:8px; cursor:pointer;
+  }
+  .copy-btn:hover{ color:var(--accent); border-color:var(--accent); }
+
+  .result-actions{ display:flex; gap:10px; margin-top:20px; }
+  .btn-primary, .btn-secondary{
+    flex:1; padding:12px; border-radius:10px; font-weight:700; font-size:13.5px;
+    cursor:pointer; border:none;
+  }
+  .btn-primary{ background:var(--accent); color:#fff; }
+  .btn-primary:hover{ background:var(--accent-hover); }
+  .btn-secondary{ background:var(--surface-alt); color:var(--text); border:1px solid var(--border); }
+
+  .api-error{
+    display:none; background:var(--danger-soft); color:var(--danger); border-radius:10px;
+    padding:12px 14px; font-size:13px; margin-top:14px; line-height:1.5;
+  }
+  .api-error.show{ display:block; }
+
+  #pdf-content{
+    position:absolute; left:-99999px; top:0; width:760px; background:#fff; color:#111;
+    padding:48px; font-family:'Inter',sans-serif;
+  }
+  #pdf-content h1{ font-size:20px; margin:0 0 4px; }
+  #pdf-content .pdf-sub{ font-size:12px; color:#666; margin-bottom:28px; }
+  #pdf-content h2{ font-size:14px; text-transform:uppercase; letter-spacing:0.04em; color:#2952E3; margin:0 0 10px; border-bottom:1px solid #eee; padding-bottom:6px; }
+  #pdf-content .pdf-section{ margin-bottom:28px; white-space:pre-wrap; font-size:13px; line-height:1.6; }
+  #pdf-content .pdf-page-break{ page-break-before: always; }
+
+  @media (max-width:600px){
+    .shell{ padding:16px 14px 50px; }
+    .panel{ padding:18px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-mark">J</div>
+      <div>
+        <div class="logo-text">JobMatch AI</div>
+      </div>
+      <span class="logo-sub">massgeschneiderte Bewerbungen</span>
+    </div>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Hell-/Dunkelmodus umschalten">
+      <span class="knob" id="theme-knob">☀</span>
+    </button>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT: INPUT -->
+    <div class="panel">
+      <div class="panel-title">1. Deine Unterlagen</div>
+
+      <div class="mode-switch" id="mode-switch">
+        <button class="mode-btn active" data-mode="new" type="button">Neue Bewerbung</button>
+        <button class="mode-btn" data-mode="adapt" type="button">Bewerbung anpassen</button>
+      </div>
+      <div class="mode-desc" id="mode-desc">Erstelle eine komplette Bewerbung aus Lebenslauf und Stellenausschreibung.</div>
+
+      <div class="validation" id="validation-msg"></div>
+
+      <!-- MODE: NEUE BEWERBUNG -->
+      <div class="field" id="section-resume">
+        <div class="field-head">
+          <label>Lebenslauf</label>
+          <label class="ghost-btn" for="resume-file">⬆ Datei hochladen
+            <input type="file" id="resume-file" accept=".txt,.pdf" style="display:none;">
+          </label>
+        </div>
+        <textarea id="resume-text" placeholder="Fuege hier deinen Lebenslauf als Text ein, oder lade eine .txt/.pdf Datei hoch..."></textarea>
+        <div class="helper" id="resume-file-status"></div>
+      </div>
+
+      <!-- MODE: BEWERBUNG ANPASSEN -->
+      <div class="field" id="section-coverletter-input" style="display:none;">
+        <div class="field-head">
+          <label>Vorhandenes Anschreiben</label>
+          <label class="ghost-btn" for="coverletter-file">⬆ Datei hochladen
+            <input type="file" id="coverletter-file" accept=".txt,.pdf" style="display:none;">
+          </label>
+        </div>
+        <textarea id="existing-cover-text" placeholder="Fuege hier dein vorhandenes Anschreiben ein, oder lade eine .txt/.pdf Datei hoch..."></textarea>
+        <div class="helper" id="coverletter-file-status"></div>
+      </div>
+
+      <div class="field" id="section-job">
+        <div class="field-head"><label>Stellenausschreibung</label></div>
+        <div class="url-row">
+          <input type="url" id="job-url" placeholder="https://... (optional, Text unten einfuegen ist zuverlaessiger)">
+          <button class="btn-fetch" id="fetch-url-btn" type="button">Abrufen</button>
+        </div>
+        <textarea id="job-text" placeholder="Fuege hier den Text der Stellenausschreibung ein..."></textarea>
+        <div class="helper" id="job-fetch-status">Hinweis: Viele Seiten blockieren automatisches Abrufen (CORS). Text einfuegen ist der zuverlaessige Weg.</div>
+      </div>
+
+      <div class="field">
+        <label>Gewuenschte Position (optional)</label>
+        <div style="height:8px;"></div>
+        <input type="text" id="desired-position" placeholder="z.B. Senior Product Manager">
+      </div>
+
+      <div class="field">
+        <div class="field-head"><label>Mein Schreibstil (optional)</label></div>
+        <textarea class="small" id="writing-style" placeholder="Ein paar Stichpunkte, typische Woerter, Redewendungen, oder ein kurzer Beispieltext von dir - damit die Bewerbung klingt, als haettest du sie selbst geschrieben."></textarea>
+        <div class="helper">Leer lassen fuer einen automatisch professionellen, natuerlichen Stil.</div>
+      </div>
+
+      <button class="generate-btn" id="generate-btn">Bewerbung generieren</button>
+      <div class="api-error" id="api-error"></div>
+    </div>
+
+    <!-- RIGHT: OUTPUT -->
+    <div class="panel">
+      <div class="panel-title">2. Ergebnis</div>
+
+      <div class="result-empty" id="result-empty">
+        <div class="big">Noch keine Bewerbung generiert</div>
+        Fuelle links deine Unterlagen aus und klicke auf "Bewerbung generieren".
+      </div>
+
+      <div class="result-loading" id="result-loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-status" id="loading-status">Analysiere Stellenausschreibung…</div>
+      </div>
+
+      <div class="result-content" id="result-content">
+        <div class="match-header">
+          <div class="match-top">
+            <span class="match-score" id="match-score">0%</span>
+            <span class="match-label">Match-Score</span>
+          </div>
+          <div class="match-bar"><div class="match-bar-fill" id="match-bar-fill"></div></div>
+          <div class="chip-row" id="chip-row"></div>
+        </div>
+
+        <div class="why-box">
+          <strong>Warum du passt</strong>
+          <span id="why-text"></span>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="cover">Anschreiben</button>
+          <button class="tab-btn" data-tab="resume" id="resume-tab-btn">Lebenslauf</button>
+        </div>
+
+        <div class="tab-panel active" data-tab-panel="cover">
+          <div class="content-box" id="cover-letter-box">
+            <button class="copy-btn" data-copy="cover-letter-box">Kopieren</button>
+            <span id="cover-letter-text"></span>
+          </div>
+        </div>
+        <div class="tab-panel" data-tab-panel="resume" id="resume-tab-panel">
+          <div class="content-box" id="resume-out-box">
+            <button class="copy-btn" data-copy="resume-out-box">Kopieren</button>
+            <span id="resume-out-text"></span>
+          </div>
+        </div>
+
+        <div class="result-actions">
+          <button class="btn-secondary" id="reset-btn">Neu generieren</button>
+          <button class="btn-primary" id="pdf-btn">Als PDF exportieren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden container used only for PDF rendering -->
+<div id="pdf-content">
+  <h1 id="pdf-title">Bewerbungsunterlagen</h1>
+  <div class="pdf-sub" id="pdf-subtitle"></div>
+  <h2>Warum du passt</h2>
+  <div class="pdf-section" id="pdf-why"></div>
+  <h2>Anschreiben</h2>
+  <div class="pdf-section" id="pdf-cover"></div>
+  <div id="pdf-resume-group">
+    <div class="pdf-page-break"></div>
+    <h2>Lebenslauf</h2>
+    <div class="pdf-section" id="pdf-resume"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+
+  /* ---------- THEME ---------- */
+  let theme = 'light';
+  let memoryStore = {};
+  function storageGet(key){
+    try{ const v = localStorage.getItem(key); return v; }
+    catch(e){ return memoryStore[key] ?? null; }
+  }
+  function storageSet(key, value){
+    try{ localStorage.setItem(key, value); }
+    catch(e){ memoryStore[key] = value; }
+  }
+  function applyTheme(){
+    document.documentElement.setAttribute('data-theme', theme);
+    $('theme-knob').textContent = theme === 'dark' ? '☾' : '☀';
+  }
+  function initTheme(){
+    const saved = storageGet('jobmatch-theme');
+    theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    applyTheme();
+  }
+  $('theme-toggle').addEventListener('click', () => {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    applyTheme();
+    storageSet('jobmatch-theme', theme);
+  });
+  initTheme();
+
+  /* ---------- MODE ---------- */
+  let currentMode = 'new'; // 'new' | 'adapt'
+  const MODE_DESC = {
+    new: 'Erstelle eine komplette Bewerbung aus Lebenslauf und Stellenausschreibung.',
+    adapt: 'Passe ein vorhandenes Anschreiben vollstaendig an eine neue Stellenausschreibung an.'
+  };
+  const GENERATE_LABEL = {
+    new: 'Bewerbung generieren',
+    adapt: 'Anschreiben anpassen'
+  };
+
+  function setMode(mode){
+    currentMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    $('mode-desc').textContent = MODE_DESC[mode];
+    $('section-resume').style.display = mode === 'new' ? 'block' : 'none';
+    $('section-coverletter-input').style.display = mode === 'adapt' ? 'block' : 'none';
+    $('generate-btn').textContent = GENERATE_LABEL[mode];
+    $('resume-tab-btn').classList.toggle('hidden-tab', mode === 'adapt');
+    if(mode === 'adapt'){
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelector('.tab-btn[data-tab="cover"]').classList.add('active');
+      document.querySelector('[data-tab-panel="cover"]').classList.add('active');
+    }
+    hideValidation();
+    hideApiError();
+    saveDraft();
+  }
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => setMode(btn.dataset.mode));
+  });
+
+  /* ---------- PERSIST DRAFT (optional local storage) ---------- */
+  function saveDraft(){
+    storageSet('jobmatch-draft', JSON.stringify({
+      mode: currentMode,
+      resume: $('resume-text').value,
+      existingCover: $('existing-cover-text').value,
+      job: $('job-text').value,
+      position: $('desired-position').value,
+      writingStyle: $('writing-style').value
+    }));
+  }
+  function loadDraft(){
+    try{
+      const raw = storageGet('jobmatch-draft');
+      if(raw){
+        const d = JSON.parse(raw);
+        $('resume-text').value = d.resume || '';
+        $('existing-cover-text').value = d.existingCover || '';
+        $('job-text').value = d.job || '';
+        $('desired-position').value = d.position || '';
+        $('writing-style').value = d.writingStyle || '';
+        if(d.mode) setMode(d.mode);
+      }
+    }catch(e){}
+  }
+  ['resume-text','job-text','desired-position','existing-cover-text','writing-style'].forEach(id=>{
+    $(id).addEventListener('input', saveDraft);
+  });
+  loadDraft();
+
+  /* ---------- FILE UPLOAD (shared helper) ---------- */
+  if(window.pdfjsLib){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  async function extractPdfText(file){
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+    let text = '';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(it=>it.str).join(' ') + '\n';
+    }
+    return text.trim();
+  }
+  async function readTextFromFile(file){
+    if(file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')){
+      return await extractPdfText(file);
+    }
+    return await file.text();
+  }
+
+  $('resume-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const status = $('resume-file-status');
+    status.textContent = 'Lese Datei...';
+    try{
+      const text = await readTextFromFile(file);
+      $('resume-text').value = text;
+      status.textContent = `"${file.name}" geladen (${text.length} Zeichen).`;
+      saveDraft();
+    }catch(err){
+      status.textContent = 'Datei konnte nicht gelesen werden. Bitte Text manuell einfuegen.';
+    }
+  });
+
+  $('coverletter-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const status = $('coverletter-file-status');
+    status.textContent = 'Lese Datei...';
+    try{
+      const text = await readTextFromFile(file);
+      $('existing-cover-text').value = text;
+      status.textContent = `"${file.name}" geladen (${text.length} Zeichen).`;
+      saveDraft();
+    }catch(err){
+      status.textContent = 'Datei konnte nicht gelesen werden. Bitte Text manuell einfuegen.';
+    }
+  });
+
+  /* ---------- URL FETCH (job posting) ---------- */
+  $('fetch-url-btn').addEventListener('click', async () => {
+    const url = $('job-url').value.trim();
+    const status = $('job-fetch-status');
+    if(!url){ status.textContent = 'Bitte zuerst eine URL eingeben.'; status.classList.add('warn'); return; }
+    status.textContent = 'Versuche abzurufen...';
+    status.classList.remove('warn');
+    try{
+      const response = await fetch('/api/fetch-url', {
+        method: 'POST',
+        headers: backendHeaders(),
+        body: JSON.stringify({ url })
+      });
+      const data = await response.json();
+      if(!response.ok) throw new Error(data && data.error ? data.error : 'Abruf fehlgeschlagen.');
+      $('job-text').value = data.text;
+      status.textContent = 'Text automatisch geladen. Bitte kurz pruefen.';
+      saveDraft();
+    }catch(err){
+      status.textContent = 'Automatisches Abrufen war nicht moeglich (' + err.message + '). Bitte den Text manuell hier einfuegen.';
+      status.classList.add('warn');
+    }
+  });
+
+  /* ---------- TABS ---------- */
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.classList.contains('hidden-tab')) return;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelector(`[data-tab-panel="${btn.dataset.tab}"]`).classList.add('active');
+    });
+  });
+
+  /* ---------- COPY ---------- */
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const box = document.getElementById(btn.dataset.copy);
+      const text = box.innerText.replace('Kopieren','').trim();
+      navigator.clipboard.writeText(text).then(() => {
+        const old = btn.textContent;
+        btn.textContent = 'Kopiert ✓';
+        setTimeout(()=> btn.textContent = old, 1500);
+      }).catch(()=>{});
+    });
+  });
+
+  /* ---------- BACKEND API ---------- */
+  const APP_SECRET = '';
+
+  function backendHeaders(){
+    const headers = { 'Content-Type': 'application/json' };
+    if(APP_SECRET) headers['x-app-secret'] = APP_SECRET;
+    return headers;
+  }
+
+  async function callClaude(systemPrompt, userPrompt, maxTokens){
+    const response = await fetch('/api/claude', {
+      method: 'POST',
+      headers: backendHeaders(),
+      body: JSON.stringify({ system: systemPrompt, prompt: userPrompt, maxTokens: maxTokens || 1000 })
+    });
+    const data = await response.json();
+    if(!response.ok){
+      throw new Error(data && data.error ? data.error : 'Server-Anfrage fehlgeschlagen.');
+    }
+    return (data.text || '').trim();
+  }
+
+  function stripJsonFence(text){
+    return text.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+  }
+
+  const BASE_SYSTEM = 'Du bist ein erfahrener Bewerbungscoach und Recruiting-Experte mit Spezialisierung auf massgeschneiderte Bewerbungsunterlagen. Du schreibst ausschliesslich auf Deutsch, in einem professionellen, modernen, aber menschlichen Ton. Du vermeidest generische Floskeln, leere Superlative und jeden erkennbaren KI-Textstil. Du erfindest niemals Fakten, Erfahrungen, Daten oder Faehigkeiten, die nicht in den gegebenen Unterlagen enthalten sind - du darfst vorhandene Inhalte nur umformulieren, neu gewichten und auf die Stelle zuschneiden. Du antwortest ausschliesslich mit dem angeforderten Inhalt, ohne einleitende Kommentare, ohne Meta-Kommentare, ohne Erklaerungen.';
+
+  function buildStyleBlock(writingStyle){
+    const style = (writingStyle || '').trim();
+    if(style){
+      return `SCHREIBSTIL-VORGABE DES NUTZERS (Wortwahl, Satzlaenge, Tonfall, Hoeflichkeit und Ausdrucksweise daran ausrichten, aber keine neuen Fakten daraus uebernehmen):\n${style}\n`;
+    }
+    return 'Kein spezifischer Schreibstil vorgegeben - schreibe professionell, natuerlich und nicht steif.';
+  }
+
+  async function analyzeMatch(resumeText, jobText, position){
+    const prompt = `STELLENAUSSCHREIBUNG:\n${jobText}\n\nLEBENSLAUF:\n${resumeText}\n\nGEWUENSCHTE POSITION (falls angegeben): ${position || '(nicht angegeben, aus Ausschreibung ableiten)'}\n\nAnalysiere Stellenausschreibung und Lebenslauf. Antworte AUSSCHLIESSLICH mit validem JSON (kein Markdown-Codeblock, kein Text davor oder danach) in exakt diesem Format:\n{"requiredSkills":["..."],"matchedSkills":["..."],"missingSkills":["..."],"matchScore":0,"whyFit":"3-4 praegnante Saetze, warum diese Person konkret fuer DIESE Stelle passt, basierend auf echten Ueberschneidungen"}\n\nmatchScore ist eine realistische ganze Zahl zwischen 0 und 100, basierend auf dem tatsaechlichen Ueberschneidungsgrad. Liste maximal 8 requiredSkills, maximal 8 matchedSkills, maximal 6 missingSkills.`;
+    const raw = await callClaude(BASE_SYSTEM, prompt);
+    try{ return JSON.parse(stripJsonFence(raw)); }
+    catch(e){ return { requiredSkills:[], matchedSkills:[], missingSkills:[], matchScore:60, whyFit: raw.slice(0,400) }; }
+  }
+
+  async function analyzeAdaptMatch(existingLetterText, jobText, position){
+    const prompt = `STELLENAUSSCHREIBUNG:\n${jobText}\n\nVORHANDENES ANSCHREIBEN DES BEWERBERS:\n${existingLetterText}\n\nGEWUENSCHTE POSITION (falls angegeben): ${position || '(nicht angegeben, aus Ausschreibung ableiten)'}\n\nAnalysiere die Stellenausschreibung und schaetze anhand des vorhandenen Anschreibens ein, wie gut die darin beschriebenen Erfahrungen und Faehigkeiten zu dieser neuen Stelle passen. Antworte AUSSCHLIESSLICH mit validem JSON (kein Markdown-Codeblock, kein Text davor oder danach) in exakt diesem Format:\n{"requiredSkills":["..."],"matchedSkills":["..."],"missingSkills":["..."],"matchScore":0,"whyFit":"3-4 praegnante Saetze, warum diese Person (nach Anpassung des Anschreibens) fuer DIESE Stelle passt"}\n\nmatchScore ist eine realistische ganze Zahl zwischen 0 und 100. Liste maximal 8 requiredSkills, maximal 8 matchedSkills, maximal 6 missingSkills.`;
+    const raw = await callClaude(BASE_SYSTEM, prompt);
+    try{ return JSON.parse(stripJsonFence(raw)); }
+    catch(e){ return { requiredSkills:[], matchedSkills:[], missingSkills:[], matchScore:60, whyFit: raw.slice(0,400) }; }
+  }
+
+  async function writeCoverLetter(resumeText, jobText, position, analysis, writingStyle){
+    const styleBlock = buildStyleBlock(writingStyle);
+    const prompt = `STELLENAUSSCHREIBUNG:\n${jobText}\n\nLEBENSLAUF:\n${resumeText}\n\nPOSITION: ${position || '(aus Ausschreibung ableiten)'}\n\nBesonders relevante Uebereinstimmungen: ${(analysis.matchedSkills||[]).join(', ') || 'siehe Lebenslauf'}\n\n${styleBlock}\n\nSchreibe ein vollstaendiges, individuelles Anschreiben (Bewerbungsschreiben) fuer genau diese Stelle. Nutze konkrete Details aus der Stellenausschreibung (z.B. Unternehmensname, Aufgaben, Anforderungen, falls vorhanden) und konkrete, greifbare Erfahrungen aus dem Lebenslauf - keine generischen Floskeln wie "Ich bin hochmotiviert" ohne Beleg. Struktur: Anrede, 3-4 inhaltsstarke Absaetze (Einstieg mit klarem Bezug zur Stelle, 1-2 Absaetze mit konkreten Erfahrungen/Ergebnissen die zur Stelle passen, Abschluss mit Gesprächswunsch), Grussformel. Laenge: ca. 300-400 Woerter. Gib NUR den Anschreiben-Text zurueck, keine Kopfzeile mit Adresse.`;
+    return await callClaude(BASE_SYSTEM, prompt);
+  }
+
+  async function adaptCoverLetter(existingLetterText, jobText, position, analysis, writingStyle){
+    const styleBlock = buildStyleBlock(writingStyle);
+    const prompt = `STELLENAUSSCHREIBUNG:\n${jobText}\n\nVORHANDENES ANSCHREIBEN (Original des Bewerbers):\n${existingLetterText}\n\nPOSITION: ${position || '(aus Ausschreibung ableiten)'}\n\nBesonders relevante Anforderungen dieser Stelle: ${(analysis.requiredSkills||[]).join(', ') || 'siehe Ausschreibung'}\n\n${styleBlock}\n\nAufgabe: Passe das vorhandene Anschreiben VOLLSTAENDIG an diese neue Stelle an.\n- Integriere die wichtigsten Anforderungen und Schluesselbegriffe aus der Stellenausschreibung sinnvoll in den Text.\n- Ersetze unpassende, generische oder auf eine andere Stelle/Firma bezogene Formulierungen.\n- Verbessere Grammatik, Rechtschreibung und Ausdruck.\n- Mach den Text natuerlicher und ueberzeugender.\n- Erhalte dabei den persoenlichen Ton, die Struktur-Idee und die Persoenlichkeit des Original-Schreibens - es soll nicht wie eine komplett neue, generische KI-Bewerbung wirken, sondern wie eine ueberarbeitete Version des eigenen Textes.\n- Erfinde keine neuen Fakten, Erfahrungen oder Daten, die nicht bereits im Original angedeutet sind.\n\nGib NUR den vollstaendig angepassten Anschreiben-Text zurueck (Anrede bis Grussformel), keine Erklaerungen oder Kommentare.`;
+    return await callClaude(BASE_SYSTEM, prompt);
+  }
+
+  async function optimizeResume(resumeText, jobText, position, analysis){
+    const prompt = `STELLENAUSSCHREIBUNG:\n${jobText}\n\nORIGINAL-LEBENSLAUF:\n${resumeText}\n\nPOSITION: ${position || '(aus Ausschreibung ableiten)'}\n\nBesonders relevante Faehigkeiten fuer diese Stelle: ${(analysis.matchedSkills||[]).join(', ') || 'siehe Lebenslauf'}\n\nErstelle eine auf DIESE Stelle zugeschnittene, optimierte Version der Lebenslauf-Inhalte (kein Design/Layout, nur Text). Struktur:\n1) "Kurzprofil" - 2-3 Saetze, auf die Stelle zugeschnitten\n2) "Kernkompetenzen" - priorisierte Stichpunktliste der fuer diese Stelle relevantesten Faehigkeiten aus dem Lebenslauf\n3) "Relevante Erfahrung" - die wichtigsten Stationen aus dem Original-Lebenslauf, aber umformuliert und priorisiert nach Relevanz fuer diese Stelle, mit konkreten, wo moeglich quantifizierten Ergebnissen aus dem Original\n\nNutze NUR Informationen, die im Original-Lebenslauf vorkommen. Gib NUR den optimierten Text zurueck, keine Meta-Kommentare.`;
+    return await callClaude(BASE_SYSTEM, prompt);
+  }
+
+  /* ---------- MAIN PIPELINE ---------- */
+  function setLoadingStatus(text){ $('loading-status').textContent = text; }
+
+  function showValidation(msg){
+    const el = $('validation-msg');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideValidation(){ $('validation-msg').classList.remove('show'); }
+  function showApiError(msg){
+    const el = $('api-error');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideApiError(){ $('api-error').classList.remove('show'); }
+
+  function renderResult(analysis, coverLetter, resumeOut, mode){
+    const score = Math.max(0, Math.min(100, Math.round(Number(analysis.matchScore) || 0)));
+    $('match-score').textContent = score + '%';
+    $('match-bar-fill').style.width = score + '%';
+
+    const chipRow = $('chip-row');
+    chipRow.innerHTML = '';
+    (analysis.matchedSkills || []).forEach(s => {
+      const c = document.createElement('span');
+      c.className = 'chip matched';
+      c.textContent = '✓ ' + s;
+      chipRow.appendChild(c);
+    });
+    (analysis.missingSkills || []).forEach(s => {
+      const c = document.createElement('span');
+      c.className = 'chip missing';
+      c.textContent = s;
+      chipRow.appendChild(c);
+    });
+
+    $('why-text').textContent = analysis.whyFit || '';
+    $('cover-letter-text').textContent = coverLetter;
+
+    const position = $('desired-position').value.trim();
+    $('pdf-title').textContent = 'Bewerbung' + (position ? ' – ' + position : '');
+    $('pdf-subtitle').textContent = 'Erstellt mit JobMatch AI · Match-Score ' + score + '%';
+    $('pdf-why').textContent = analysis.whyFit || '';
+    $('pdf-cover').textContent = coverLetter;
+
+    if(mode === 'new'){
+      $('resume-out-text').textContent = resumeOut || '';
+      $('pdf-resume').textContent = resumeOut || '';
+      $('pdf-resume-group').style.display = 'block';
+    } else {
+      $('resume-out-text').textContent = '';
+      $('pdf-resume').textContent = '';
+      $('pdf-resume-group').style.display = 'none';
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.tab-btn[data-tab="cover"]').classList.add('active');
+    document.querySelector('[data-tab-panel="cover"]').classList.add('active');
+
+    $('result-empty').style.display = 'none';
+    $('result-loading').classList.remove('show');
+    $('result-content').classList.add('show');
+  }
+
+  $('generate-btn').addEventListener('click', async () => {
+    hideValidation();
+    hideApiError();
+    const resumeText = $('resume-text').value.trim();
+    const existingCoverText = $('existing-cover-text').value.trim();
+    const jobText = $('job-text').value.trim();
+    const position = $('desired-position').value.trim();
+    const writingStyle = $('writing-style').value.trim();
+
+    if(currentMode === 'new' && (!resumeText || !jobText)){
+      showValidation('Bitte fuelle sowohl Lebenslauf als auch Stellenausschreibung aus, bevor du generierst.');
+      return;
+    }
+    if(currentMode === 'adapt' && (!existingCoverText || !jobText)){
+      showValidation('Bitte fuege sowohl dein vorhandenes Anschreiben als auch die Stellenausschreibung ein.');
+      return;
+    }
+
+    const btn = $('generate-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Generiere...';
+
+    $('result-empty').style.display = 'none';
+    $('result-content').classList.remove('show');
+    $('result-loading').classList.add('show');
+
+    try{
+      if(currentMode === 'new'){
+        setLoadingStatus('Analysiere Stellenausschreibung und Lebenslauf…');
+        const analysis = await analyzeMatch(resumeText, jobText, position);
+
+        setLoadingStatus('Formuliere individuelles Anschreiben…');
+        const coverLetter = await writeCoverLetter(resumeText, jobText, position, analysis, writingStyle);
+
+        setLoadingStatus('Optimiere Lebenslauf-Inhalte…');
+        const resumeOut = await optimizeResume(resumeText, jobText, position, analysis);
+
+        renderResult(analysis, coverLetter, resumeOut, 'new');
+      } else {
+        setLoadingStatus('Analysiere Stellenausschreibung und vorhandenes Anschreiben…');
+        const analysis = await analyzeAdaptMatch(existingCoverText, jobText, position);
+
+        setLoadingStatus('Passe Anschreiben an die neue Stelle an…');
+        const adaptedLetter = await adaptCoverLetter(existingCoverText, jobText, position, analysis, writingStyle);
+
+        renderResult(analysis, adaptedLetter, null, 'adapt');
+      }
+    }catch(err){
+      $('result-loading').classList.remove('show');
+      $('result-empty').style.display = 'block';
+      showApiError('Fehler bei der Generierung: ' + err.message + '. Pruefe, ob der Backend-Server laeuft (node server.js) und ob ANTHROPIC_API_KEY in der .env Datei korrekt gesetzt ist.');
+    }finally{
+      btn.disabled = false;
+      btn.textContent = GENERATE_LABEL[currentMode];
+    }
+  });
+
+  $('reset-btn').addEventListener('click', () => {
+    $('result-content').classList.remove('show');
+    $('result-empty').style.display = 'block';
+  });
+
+  $('pdf-btn').addEventListener('click', () => {
+    const position = $('desired-position').value.trim();
+    const filename = 'Bewerbung' + (position ? '_' + position.replace(/[^a-zA-Z0-9]+/g,'_') : '') + '.pdf';
+    html2pdf().set({
+      margin: 12,
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css'] }
+    }).from($('pdf-content')).save();
+  });
+})();
+</script>
+</body>
+</html>
