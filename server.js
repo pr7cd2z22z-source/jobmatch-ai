@@ -5,11 +5,12 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const APP_SECRET = process.env.APP_SECRET || '';
 
-if (!ANTHROPIC_API_KEY) {
-  console.warn('WARNUNG: ANTHROPIC_API_KEY ist nicht gesetzt. Die Route /api/claude wird fehlschlagen, bis du sie in der .env Datei eintraegst.');
+if (!GEMINI_API_KEY) {
+  console.warn('WARNUNG: GEMINI_API_KEY ist nicht gesetzt. Die Route /api/claude wird fehlschlagen, bis du sie in der .env Datei eintraegst.');
 }
 
 app.use(cors());
@@ -25,41 +26,45 @@ function checkAppSecret(req, res, next) {
   next();
 }
 
+// Proxy zu Google Gemini (kostenlose Stufe): haelt den API-Key serverseitig.
 app.post('/api/claude', checkAppSecret, async (req, res) => {
   try {
     const { system, prompt, maxTokens } = req.body || {};
     if (!prompt) {
       return res.status(400).json({ error: 'Feld "prompt" fehlt.' });
     }
-    if (!ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: 'Server ist nicht konfiguriert: ANTHROPIC_API_KEY fehlt in der .env Datei.' });
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'Server ist nicht konfiguriert: GEMINI_API_KEY fehlt in der .env Datei.' });
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: Math.min(Number(maxTokens) || 1000, 4000),
-        system: system || undefined,
-        messages: [{ role: 'user', content: prompt }]
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: system ? { parts: [{ text: system }] } : undefined,
+        generationConfig: {
+          maxOutputTokens: Math.min(Number(maxTokens) || 1000, 4000)
+        }
       })
     });
 
     const data = await response.json();
     if (!response.ok) {
-      const message = (data && data.error && data.error.message) || 'Anthropic API Fehler.';
+      const message = (data && data.error && data.error.message) || 'Gemini API Fehler.';
       return res.status(response.status).json({ error: message });
     }
 
-    const text = (data.content || [])
-      .map((b) => (b.type === 'text' ? b.text : ''))
-      .join('\n')
-      .trim();
+    const candidate = data.candidates && data.candidates[0];
+    const text = candidate && candidate.content && candidate.content.parts
+      ? candidate.content.parts.map((p) => p.text || '').join('\n').trim()
+      : '';
+
+    if (!text) {
+      return res.status(502).json({ error: 'Gemini hat keinen Text zurueckgegeben (moeglicherweise durch einen Sicherheitsfilter blockiert oder Tageslimit erreicht).' });
+    }
 
     res.json({ text });
   } catch (err) {
@@ -68,6 +73,7 @@ app.post('/api/claude', checkAppSecret, async (req, res) => {
   }
 });
 
+// Server-seitiger Abruf von Stellenausschreibungen - umgeht CORS-Probleme im Browser.
 app.post('/api/fetch-url', checkAppSecret, async (req, res) => {
   try {
     const { url } = req.body || {};
@@ -123,6 +129,14 @@ function htmlToText(html) {
     .trim();
 }
 
+// Fallback: alles, was keine API-Route ist, bekommt die App-Seite ausgeliefert.
+// Das verhindert "Cannot GET /" in serverless Umgebungen wie Vercel.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`JobMatch AI Backend laeuft auf http://localhost:${PORT}`);
 });
+
+module.exports = app;
